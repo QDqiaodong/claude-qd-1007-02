@@ -1,0 +1,19 @@
+spring:
+  # 集成测试使用 H2 内存库（MySQL 兼容模式），不依赖外部 MySQL；表结构由 Hibernate 按实体生成
+  datasource:
+    url: jdbc:h2:mem:amusement_park;MODE=MySQL;DB_CLOSE_DELAY=-1;CASE=INSENSITIVE_IDENTIFIERS
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
