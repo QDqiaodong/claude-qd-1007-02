@@ -6,7 +6,9 @@ SET character_set_results = utf8mb4;
 -- ---------------------------------------------------------------------
 -- 欢乐谷游乐园 · 设施 / 演出 / 餐饮 / 会员年卡
 -- 库名 amusement_park；application.yml 里 ddl-auto: none，表结构全部由本文件在 MySQL 镜像构建期导入。
--- 注意：mysql 容器是 UTC，种子数据里的时间一律写 UTC_TIMESTAMP() + INTERVAL 8 HOUR。
+-- 注意：mysql 容器是 UTC。业务时间列一律存园区（Asia/Shanghai，UTC+08:00）挂钟值：
+--   本文件里的 created_at 等用 UTC_TIMESTAMP() + INTERVAL 8 HOUR 表达；
+--   park_show.show_at 直接写园区挂钟字面值（见该表种子数据注释），show_at_raw 保留原始字面量。
 
 CREATE DATABASE IF NOT EXISTS amusement_park
   DEFAULT CHARACTER SET utf8mb4
@@ -88,6 +90,9 @@ CREATE TABLE ride_inspection (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------- 园区演出（show 为保留字，表名用 park_show） ----------------
+-- show_at 统一存「园区 Asia/Shanghai 挂钟值」（解释后的真实园区时刻）；
+-- show_at_raw 保存建档/导入时的原始字面量（历史可追溯，可能带偏移量，也可能不带），
+-- 早期数据没有原文时为 NULL，其 show_at 即按园区挂钟值理解。
 CREATE TABLE park_show (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     show_code VARCHAR(24) NOT NULL UNIQUE,
@@ -96,7 +101,9 @@ CREATE TABLE park_show (
     capacity INT NOT NULL,
     booked INT NOT NULL DEFAULT 0,
     show_at DATETIME,
-    created_at DATETIME
+    show_at_raw VARCHAR(40),
+    created_at DATETIME,
+    INDEX idx_show_at (show_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ---------------- 餐饮网点 ----------------
@@ -160,14 +167,30 @@ INSERT INTO ride_inspection
  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
  UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 1 DAY);
 
-INSERT INTO park_show (id, show_code, show_name, venue, capacity, booked, show_at, created_at) VALUES
-(1, 'S-001', '花车大巡游', '中央广场', 500, 320, UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 2 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(2, 'S-002', '奇幻魔术剧场', '梦幻剧场', 200, 200, UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 2 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(3, 'S-003', '水上特技秀', '湖畔舞台', 300, 150, UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 3 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(4, 'S-004', '儿童音乐剧', '糖果剧场', 180, 60,  UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 3 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(5, 'S-005', '夜空光影秀', '夜空广场', 800, 500, UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 4 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(6, 'S-006', '欢乐杂技表演', '中央广场', 400, 0,   UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 4 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
-(7, 'S-007', '童话人偶巡游', '童话大街', 600, 280, UTC_TIMESTAMP() + INTERVAL 8 HOUR + INTERVAL 5 DAY, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY);
+-- 演出时刻口径：show_at 一律写园区（上海，UTC+08:00）挂钟时间。
+--   * 早期/不带偏移量的历史值：直接写上海挂钟值，show_at_raw 留 NULL（或同文字面量）；
+--   * 带偏移量的历史值：把绝对时刻换算到上海再写 show_at，原文保存在 show_at_raw 可追溯。
+-- 覆盖：普通日期、午夜前后跨日（UTC 23:30 → 上海次日 07:30）、
+--       同一绝对时刻两种写法（S-009 带偏移 / S-012 不带，园区时刻相同，按编号排序）、
+--       闰日（2028-02-29）、夏令时地区客户端偏移（-07:00 → +15 小时）、以及未排期 NULL。
+INSERT INTO park_show (id, show_code, show_name, venue, capacity, booked, show_at, show_at_raw, created_at) VALUES
+(1, 'S-001', '花车大巡游', '中央广场', 500, 320, '2028-03-03 10:00:00', NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(2, 'S-002', '奇幻魔术剧场', '梦幻剧场', 200, 200, '2028-03-03 14:30:00', '2028-03-03 14:30:00', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(3, 'S-003', '水上特技秀', '湖畔舞台', 300, 150, '2028-03-04 11:00:00', NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(4, 'S-004', '儿童音乐剧', '糖果剧场', 180, 60,  '2028-03-04 15:00:00', '2028-03-04T15:00:00', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(5, 'S-005', '夜空光影秀', '夜空广场', 800, 500, '2028-03-05 19:30:00', NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(6, 'S-006', '欢乐杂技表演', '中央广场', 400, 0,   '2028-03-05 20:00:00', NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+(7, 'S-007', '童话人偶巡游', '童话大街', 600, 280, '2028-03-06 09:30:00', NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+-- 闰日场次：2028 为闰年，02-29 必须准确归到当天
+(8, 'S-008', '闰年特别巡游', '中央广场', 500, 120, '2028-02-29 10:30:00', '2028-02-29T10:30:00+08:00', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+-- 跨日边界：UTC 3/2 23:30 与上海 3/3 07:30 是同一绝对时刻，园区日期为 3 月 3 日
+(9, 'S-009', '午夜星光巡游', '湖畔舞台', 260, 80,  '2028-03-03 07:30:00', '2028-03-02T23:30:00Z', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+-- 夏令时地区客户端：洛杉矶夏令时 -07:00 的 10:00 = 上海次日 01:00
+(10, 'S-010', '西海岸联动直播秀', '未来馆', 120, 30, '2028-07-16 01:00:00', '2028-07-15T10:00:00-07:00', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+-- 未排期：无演出时刻，列表统一沉到末尾
+(11, 'S-011', '待定特别活动', '中央广场', 300, 0, NULL, NULL, UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY),
+-- 与 S-009 同一园区时刻的不带偏移量写法，用于验证两类历史值解释一致；相同时刻按编号 S-009 在前
+(12, 'S-012', '晨光加演场', '糖果剧场', 180, 40, '2028-03-03 07:30:00', '2028-03-03 07:30:00', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 70 DAY);
 
 INSERT INTO fnb (id, outlet_code, name, type, status, created_at) VALUES
 (1, 'F-001', '园区汉堡屋', '快餐', '营业', UTC_TIMESTAMP() + INTERVAL 8 HOUR - INTERVAL 82 DAY),

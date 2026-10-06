@@ -1,7 +1,8 @@
 spring:
-  # 集成测试使用 H2 内存库（MySQL 兼容模式），不依赖外部 MySQL；表结构由 Hibernate 按实体生成
+  # 集成测试使用 H2 内存库（MySQL 兼容模式），不依赖外部 MySQL；表结构由 Hibernate 按实体生成。
+  # CASE_INSENSITIVE_IDENTIFIERS=TRUE：H2 2.2.x 以该 URL 参数开启标识符大小写不敏感（等价旧写法 CASE=...）。
   datasource:
-    url: jdbc:h2:mem:amusement_park;MODE=MySQL;DB_CLOSE_DELAY=-1;CASE=INSENSITIVE_IDENTIFIERS
+    url: jdbc:h2:mem:amusement_park;MODE=MySQL;DB_CLOSE_DELAY=-1;CASE_INSENSITIVE_IDENTIFIERS=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password: ""

@@ -21,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 
@@ -43,18 +43,25 @@ import com.amusement.park.repository.SeasonPassRepository;
  * 办卡日期区间与并发重复办卡、失败请求不回滚已成功结果，以及接口 message 与
  * 可解释结果 reason/逐项文案一致。</p>
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.main.allow-bean-definition-overriding=true")
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class BoardAndPassIntegrationTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
+    /**
+     * 固定时钟：以同名 Bean {@code parkClock} 覆盖主配置里的 parkClock
+     * （测试通过 allow-bean-definition-overriding 显式允许同名覆盖），
+     * 不再新增第二个 {@code @Primary}，避免与 {@code ClockConfig} 里的 parkClock
+     * 同时成为候选而报 “more than one 'primary' bean”。
+     * 整个测试期间时间固定在园区时区 2026-06-15，保证日期首尾边界可重复。
+     */
     @TestConfiguration
     static class FixedClockConfig {
         @Bean
-        @Primary
-        Clock fixedClock() {
+        Clock parkClock() {
             return Clock.fixed(TODAY.atStartOfDay(ZONE).toInstant(), ZONE);
         }
     }

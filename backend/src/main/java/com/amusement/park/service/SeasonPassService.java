@@ -16,6 +16,8 @@ import com.amusement.park.entity.SeasonPass;
 import com.amusement.park.repository.MemberRepository;
 import com.amusement.park.repository.SeasonPassRepository;
 
+import jakarta.persistence.EntityManager;
+
 /**
  * 年卡 / 季卡业务（与会员共享主键）。
  *
@@ -32,13 +34,16 @@ public class SeasonPassService {
 
     private final SeasonPassRepository seasonPassRepository;
     private final MemberRepository memberRepository;
+    private final EntityManager entityManager;
     private final Clock clock;
 
     public SeasonPassService(SeasonPassRepository seasonPassRepository,
                              MemberRepository memberRepository,
+                             EntityManager entityManager,
                              Clock clock) {
         this.seasonPassRepository = seasonPassRepository;
         this.memberRepository = memberRepository;
+        this.entityManager = entityManager;
         this.clock = clock;
     }
 
@@ -70,7 +75,13 @@ public class SeasonPassService {
         pass.setPassType(normalizePassType(holder.passType));
         pass.setCreatedAt(LocalDateTime.now(clock));
         try {
-            return seasonPassRepository.saveAndFlush(pass);
+            // 必须用 persist + flush 插入新卡行：member_id 是应用赋值的共享主键，
+            // save/saveAndFlush 会按“非自增主键”走 merge，而 Hibernate 6.5 对
+            // @PrimaryKeyJoinColumn 共享主键一对一在 merge 时抛
+            // AssertionFailure(null identifier)。重复主键由唯一约束兜底。
+            entityManager.persist(pass);
+            entityManager.flush();
+            return pass;
         } catch (DataIntegrityViolationException e) {
             // 极端并发下行锁之外的第二道防线（共享主键唯一约束）
             throw new BizException("该会员已持有年卡/季卡，请刷新后使用续期接口");

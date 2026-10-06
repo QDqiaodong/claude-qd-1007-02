@@ -46,9 +46,21 @@ public class Show {
     @Column(name = "booked", nullable = false)
     private Integer booked = 0;
 
-    /** 演出时间 */
+    /**
+     * 演出时间（统一为园区 Asia/Shanghai 挂钟值，与容器/客户端时区无关）。
+     * 由服务端按 {@link com.amusement.park.common.ParkShowTime} 对原始字面量
+     * （带或不带偏移量）解释后写入；未排期为 null。
+     */
     @Column(name = "show_at")
     private LocalDateTime showAt;
+
+    /**
+     * 演出时刻原始字面量（历史可追溯）：保存建档/导入时收到的原文，
+     * 可能带偏移量（2028-03-02T23:30:00Z）也可能不带（2028-03-03 07:30:00）；
+     * 早期数据没有原文时为 null，其 show_at 按园区挂钟值理解。
+     */
+    @Column(name = "show_at_raw", length = 40)
+    private String showAtRaw;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

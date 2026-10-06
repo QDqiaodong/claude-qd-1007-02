@@ -12,10 +12,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amusement.park.common.ApiResponse;
+import com.amusement.park.dto.ShowInput;
+import com.amusement.park.dto.ShowScheduleItem;
 import com.amusement.park.entity.Show;
 import com.amusement.park.service.ShowService;
 
-/** 园区演出接口 */
+/**
+ * 园区演出接口。
+ *
+ * <p>列表 {@code GET /api/shows} 返回按园区（上海）真实时刻排序的排期项，
+ * 并显式给出园区日期/时间；建档/更新的时刻字面量由服务端统一按时区解释。</p>
+ */
 @RestController
 @RequestMapping("/api/shows")
 public class ShowController {
@@ -27,8 +34,8 @@ public class ShowController {
     }
 
     @GetMapping
-    public ApiResponse<List<Show>> list() {
-        return ApiResponse.success(showService.list());
+    public ApiResponse<List<ShowScheduleItem>> list() {
+        return ApiResponse.success(showService.listSchedule());
     }
 
     @GetMapping("/{id}")
@@ -37,12 +44,12 @@ public class ShowController {
     }
 
     @PostMapping
-    public ApiResponse<Show> create(@RequestBody Show input) {
+    public ApiResponse<Show> create(@RequestBody ShowInput input) {
         return ApiResponse.success("演出已建档", showService.create(input));
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<Show> update(@PathVariable Long id, @RequestBody Show input) {
+    public ApiResponse<Show> update(@PathVariable Long id, @RequestBody ShowInput input) {
         return ApiResponse.success("已更新", showService.update(id, input));
     }
 
