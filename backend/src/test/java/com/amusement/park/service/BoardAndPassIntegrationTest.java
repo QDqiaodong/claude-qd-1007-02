@@ -15,15 +15,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
+import static org.mockito.Mockito.when;
 
 import com.amusement.park.common.BizException;
 import com.amusement.park.common.BoardRejectedException;
@@ -45,18 +47,24 @@ import com.amusement.park.repository.SeasonPassRepository;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class BoardAndPassIntegrationTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
-    @TestConfiguration
-    static class FixedClockConfig {
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(TODAY.atStartOfDay(ZONE).toInstant(), ZONE);
-        }
+    /**
+     * 用 MockBean 固定时钟，替换容器里唯一的 Clock bean（ClockConfig#parkClock）。
+     * 不再额外声明 @Primary Clock——与生产 ClockConfig 同时存在两个 primary 候选时
+     * 会在新增任意第二个 SpringBootTest 上下文后导致装配歧义。
+     */
+    @MockBean
+    private Clock clock;
+
+    @BeforeEach
+    void fixClock() {
+        when(clock.instant()).thenReturn(TODAY.atStartOfDay(ZONE).toInstant());
+        when(clock.getZone()).thenReturn(ZONE);
     }
 
     @Autowired private BoardVerificationService boardService;

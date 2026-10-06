@@ -46,9 +46,24 @@ public class Show {
     @Column(name = "booked", nullable = false)
     private Integer booked = 0;
 
-    /** 演出时间 */
+    /**
+     * 演出时间，语义固定为园区挂钟时间（Asia/Shanghai）。
+     *
+     * <p>历史值可能不带偏移量（本身就是园区时间）或带偏移量（已换算到园区时区），
+     * 换算规则见 {@link com.amusement.park.common.ParkShowTime}；原始值与偏移量
+     * 保留在 {@link #timeSource} / {@link #timeOffset}，解释过程可追溯。
+     * 列表按本字段从早到晚排序，null 表示未登记时刻，统一排在末尾。</p>
+     */
     @Column(name = "show_at")
     private LocalDateTime showAt;
+
+    /** 原始历史时刻值（不带偏移量 / 带偏移量两种都原样保留），用于追溯 */
+    @Column(name = "time_source", length = 64)
+    private String timeSource;
+
+    /** BARE=原值无偏移、按园区挂钟原样解释；否则为原值偏移量，如 Z / +04:00 / -05:00 */
+    @Column(name = "time_offset", length = 16)
+    private String timeOffset;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

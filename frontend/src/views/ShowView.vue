@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import api from '../api'
+import { parkDateText, parkTimeText, sortShowRows, sourceTip } from './showTime'
 
 const rows = ref([])
 const error = ref('')
@@ -11,7 +12,7 @@ const dialog = ref(false)
 const saving = ref(false)
 const form = ref(blank())
 function blank() {
-  return { showCode: '', showName: '', venue: '', capacity: '', booked: 0, showAt: '' }
+  return { showCode: '', showName: '', venue: '', capacity: '', booked: 0, showAtRaw: '' }
 }
 
 const reserveDialog = ref(false)
@@ -21,8 +22,9 @@ const reserveForm = ref({ id: null, showName: '', seats: '' })
 async function load() {
   loading.value = true; error.value = ''
   try {
+    // 列表顺序、园区日期/时间全部由后端按 Asia/Shanghai 解释后给出，页面不再做任何时区换算
     const data = await api.listShows()
-    rows.value = data || []
+    rows.value = sortShowRows(data || [])
   } catch (e) { error.value = e.message } finally { loading.value = false }
 }
 
@@ -33,6 +35,8 @@ async function save() {
   saving.value = true; error.value = ''
   try {
     const d = { ...form.value, capacity: Number(form.value.capacity), booked: Number(form.value.booked || 0) }
+    // 空串显式表示不排期；非空为不带偏移量的园区挂钟时间，由后端按上海时区原样解释
+    d.showAtRaw = d.showAtRaw || ''
     await api.createShow(d)
     tip.value = `演出 ${d.showCode} 已建档`
     dialog.value = false
@@ -88,7 +92,18 @@ onMounted(load)
         <el-table-column label="余座" width="90">
           <template #default="{ row }"><span :style="{ color: remaining(row) <= 0 ? '#c0392b' : '#1e8e4e', fontWeight: 600 }">{{ remaining(row) }}</span></template>
         </el-table-column>
-        <el-table-column prop="showAt" label="演出时间" min-width="170" />
+        <el-table-column label="园区日期" width="120">
+          <template #default="{ row }">
+            <el-tooltip :content="sourceTip(row)" placement="top" :disabled="false">
+              <span :class="{ 'time-muted': !row.scheduled }">{{ parkDateText(row) }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
+        <el-table-column label="园区时间（上海）" width="150">
+          <template #default="{ row }">
+            <span :class="{ 'time-muted': !row.scheduled }">{{ parkTimeText(row) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" :disabled="remaining(row) <= 0" @click="openReserve(row)">预订</el-button>
@@ -104,7 +119,11 @@ onMounted(load)
         <el-form-item label="场地"><el-input v-model="form.venue" /></el-form-item>
         <el-form-item label="容量"><el-input v-model="form.capacity" type="number" /></el-form-item>
         <el-form-item label="已订座位"><el-input v-model="form.booked" type="number" /></el-form-item>
-        <el-form-item label="演出时间"><el-date-picker v-model="form.showAt" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%" /></el-form-item>
+        <el-form-item label="演出时刻">
+          <el-date-picker v-model="form.showAtRaw" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss"
+            placeholder="选择园区时刻（上海时间）" style="width:100%" />
+          <div class="form-hint">所选为园区挂钟时间（Asia/Shanghai，无夏令时）；留空表示暂不排期，将排在列表末尾</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialog = false">取消</el-button>

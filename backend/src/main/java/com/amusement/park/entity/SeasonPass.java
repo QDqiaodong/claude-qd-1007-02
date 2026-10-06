@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import jakarta.persistence.Table;
@@ -29,8 +30,13 @@ public class SeasonPass {
     @Column(name = "member_id")
     private Long memberId;
 
-    /** 共享主键一对一：member_id 既是本表主键也是指向 member 的外键 */
+    /**
+     * 共享主键一对一：member_id 既是本表主键也是指向 member 的外键。
+     * {@link MapsId} 标明这是派生标识符（member.id 派生），merge 时用关联端的 id
+     * 作为 {@link #memberId} 的标识，避免 Hibernate 6 按独立外键关联解析出 null 键。
+     */
     @OneToOne
+    @MapsId
     @PrimaryKeyJoinColumn(name = "member_id")
     private Member member;
 

@@ -66,6 +66,20 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                      测试 JVM 固定在 UTC（与园区 Asia/Shanghai 不同）并固定 UTF-8：
+                      保证任何人、任何构建节点运行，集成测试的系统默认时区都一致且非园区时区，
+                      从而可重复地验证“解释/归属/排序只按园区时区”，不被宿主机时区影响。
+                      多个客户端/系统时区下结果一致由 ParkShowTimeTest / ShowServiceTest
+                      在测试内切换 JVM 默认时区直接验证。
+                    -->
+                    <argLine>-Dfile.encoding=UTF-8 -Duser.timezone=UTC</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

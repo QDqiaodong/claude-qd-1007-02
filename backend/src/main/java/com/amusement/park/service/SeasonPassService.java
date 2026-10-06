@@ -63,14 +63,19 @@ public class SeasonPassService {
                     + "，有效期至 " + existing.getValidTo() + "），请使用续期接口");
         }
         SeasonPass pass = new SeasonPass();
-        pass.setMemberId(memberId);
+        // memberId 是派生标识符（@MapsId 于 member 关联）：新建时不要手动赋值，
+        // 由 Hibernate 从 member.id 派生；否则 merge 路径会把关联当成独立外键并解析出 null 键。
         pass.setMember(member);
         pass.setValidFrom(holder.validFrom);
         pass.setValidTo(holder.validTo);
         pass.setPassType(normalizePassType(holder.passType));
         pass.setCreatedAt(LocalDateTime.now(clock));
         try {
-            return seasonPassRepository.saveAndFlush(pass);
+            // 明确新增：save 走 persist，再 flush 立即暴露约束冲突（saveAndFlush 的 merge
+            // 路径不支持派生标识符的瞬态实例）
+            SeasonPass saved = seasonPassRepository.save(pass);
+            seasonPassRepository.flush();
+            return saved;
         } catch (DataIntegrityViolationException e) {
             // 极端并发下行锁之外的第二道防线（共享主键唯一约束）
             throw new BizException("该会员已持有年卡/季卡，请刷新后使用续期接口");

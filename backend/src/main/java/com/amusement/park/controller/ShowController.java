@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amusement.park.common.ApiResponse;
+import com.amusement.park.dto.ShowInput;
+import com.amusement.park.dto.ShowListItem;
 import com.amusement.park.entity.Show;
 import com.amusement.park.service.ShowService;
 
@@ -26,23 +28,27 @@ public class ShowController {
         this.showService = showService;
     }
 
+    /**
+     * 列表：已按园区时区（Asia/Shanghai）解释后的真实时刻从早到晚排序，
+     * 园区日期/时间由服务端给出，无时刻记录置末。
+     */
     @GetMapping
-    public ApiResponse<List<Show>> list() {
+    public ApiResponse<List<ShowListItem>> list() {
         return ApiResponse.success(showService.list());
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Show> get(@PathVariable Long id) {
+    public ApiResponse<ShowListItem> get(@PathVariable Long id) {
         return ApiResponse.success(showService.get(id));
     }
 
     @PostMapping
-    public ApiResponse<Show> create(@RequestBody Show input) {
+    public ApiResponse<ShowListItem> create(@RequestBody ShowInput input) {
         return ApiResponse.success("演出已建档", showService.create(input));
     }
 
     @PutMapping("/{id}")
-    public ApiResponse<Show> update(@PathVariable Long id, @RequestBody Show input) {
+    public ApiResponse<ShowListItem> update(@PathVariable Long id, @RequestBody ShowInput input) {
         return ApiResponse.success("已更新", showService.update(id, input));
     }
 
